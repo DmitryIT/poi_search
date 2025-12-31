@@ -65,6 +65,9 @@ The app will be available at `http://localhost:5173`
 | `npm test` | Run tests |
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run test:coverage` | Run tests with coverage |
+| `npm run deps:check` | Check for package updates |
+| `npm run deps:update` | Update all packages to latest |
+| `npm run deps:update:minor` | Update packages (minor versions only) |
 
 ## Project Structure
 
