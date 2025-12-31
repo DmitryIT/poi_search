@@ -149,9 +149,59 @@ describe('Nominatim Service', () => {
       expect(callUrl).toContain('bounded=1')
       expect(callUrl).toContain('viewbox=8.4%2C49.9%2C8.8%2C50.2')
 
-      // Verify results are returned
+      // Verify results are returned (no fallback needed since results found)
+      expect(global.fetch).toHaveBeenCalledTimes(1)
       expect(results).toHaveLength(1)
       expect(results[0].name).toBe('Frankfurt Airport')
+    })
+
+    it('should fallback to unbounded search when no local results found', async () => {
+      // Scenario: User is viewing Frankfurt but searches for "New York"
+      // First bounded search returns empty, then fallback finds New York
+      const newYorkResult = [
+        {
+          place_id: 88888,
+          name: 'New York City',
+          display_name: 'New York City, New York, USA',
+          lat: '40.7128',
+          lon: '-74.0060',
+          type: 'city',
+          address: {
+            city: 'New York City',
+            state: 'New York',
+            country: 'USA'
+          }
+        }
+      ]
+
+      // First call (bounded) returns empty
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([])
+      })
+      // Second call (unbounded) returns New York
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(newYorkResult)
+      })
+
+      const frankfurtViewbox = { south: 49.9, west: 8.4, north: 50.2, east: 8.8 }
+      const results = await searchPOI('New York', { viewbox: frankfurtViewbox })
+
+      // Verify two API calls were made
+      expect(global.fetch).toHaveBeenCalledTimes(2)
+
+      // First call should be bounded=1
+      const firstCallUrl = global.fetch.mock.calls[0][0]
+      expect(firstCallUrl).toContain('bounded=1')
+
+      // Second call should be bounded=0 (fallback)
+      const secondCallUrl = global.fetch.mock.calls[1][0]
+      expect(secondCallUrl).toContain('bounded=0')
+
+      // Verify New York is returned
+      expect(results).toHaveLength(1)
+      expect(results[0].name).toBe('New York City')
     })
 
     it('should normalize POI response correctly', async () => {
@@ -182,9 +232,10 @@ describe('Nominatim Service', () => {
     })
 
     it('should include User-Agent header', async () => {
+      const mockResult = [{ place_id: 1, name: 'Test', display_name: 'Test', lat: '0', lon: '0' }]
       global.fetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve([])
+        json: () => Promise.resolve(mockResult)
       })
 
       await searchPOI('test')
