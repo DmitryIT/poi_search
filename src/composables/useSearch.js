@@ -16,31 +16,11 @@ export function useSearch() {
   const mapBounds = ref(null)
   const mapCenter = ref(null)
 
-  // Category order with LIFO - most recently used on top
-  const categoryOrder = ref(getInitialCategories().map(c => c.key))
-
-  // Computed sorted categories
+  // Computed categories sorted alphabetically by label
   const categories = computed(() => {
     const allCategories = getInitialCategories()
-    return categoryOrder.value.map(key =>
-      allCategories.find(c => c.key === key)
-    ).filter(Boolean)
+    return allCategories.sort((a, b) => a.label.localeCompare(b.label))
   })
-
-  /**
-   * Move a category to the top of the list (LIFO)
-   */
-  function promoteCategory(categoryKey) {
-    if (!categoryKey) return
-
-    const currentIndex = categoryOrder.value.indexOf(categoryKey)
-    if (currentIndex > 0) {
-      const newOrder = [...categoryOrder.value]
-      newOrder.splice(currentIndex, 1)
-      newOrder.unshift(categoryKey)
-      categoryOrder.value = newOrder
-    }
-  }
 
   /**
    * Update map viewport info
@@ -65,11 +45,6 @@ export function useSearch() {
     error.value = null
     results.value = []
     selectedPOI.value = null
-
-    // Promote used category to top
-    if (category) {
-      promoteCategory(category)
-    }
 
     try {
       const data = await searchPOI(query, {
@@ -104,9 +79,6 @@ export function useSearch() {
     error.value = null
     results.value = []
     selectedPOI.value = null
-
-    // Promote used category to top
-    promoteCategory(category)
 
     try {
       const data = await searchByCategory(
@@ -171,7 +143,6 @@ export function useSearch() {
     selectPOI,
     clearSelection,
     clearSearch,
-    promoteCategory,
     updateMapViewport
   }
 }

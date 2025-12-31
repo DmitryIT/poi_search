@@ -42,9 +42,11 @@ describe('useSearch Composable', () => {
       expect(error.value).toBeNull()
     })
 
-    it('should have categories in initial order', () => {
+    it('should have categories sorted alphabetically by label', () => {
       const { categories } = useSearch()
-      expect(categories.value[0].key).toBe('restaurant')
+      // Categories should be sorted alphabetically by label
+      // Cafes, Hotels, Parks, Restaurants (from mock data)
+      expect(categories.value[0].key).toBe('cafe')
       expect(categories.value[1].key).toBe('hotel')
     })
 
@@ -195,45 +197,34 @@ describe('useSearch Composable', () => {
       expect(error.value).toContain('No cafes found in this area')
     })
 
-    it('should promote category to top after search', async () => {
+    it('should maintain alphabetical order after category search', async () => {
       searchByCategory.mockResolvedValueOnce([{ id: 1 }])
 
       const { searchCategory, categories } = useSearch()
 
       await searchCategory('park')
 
-      expect(categories.value[0].key).toBe('park')
+      // Categories remain alphabetically sorted after search
+      // (cafe is first alphabetically in the mock data)
+      expect(categories.value[0].key).toBe('cafe')
     })
   })
 
-  describe('LIFO category ordering', () => {
-    it('should promote used category to top', async () => {
+  describe('alphabetical category ordering', () => {
+    it('should maintain alphabetical order after search', async () => {
       searchPOI.mockResolvedValue([{ id: 1 }])
 
       const { search, categories } = useSearch()
+      const initialOrder = categories.value.map(c => c.key)
 
-      // Initial order: restaurant, hotel, cafe, park
-      expect(categories.value[0].key).toBe('restaurant')
-
-      // Search with cafe category
+      // Search with any category
       await search('test', 'cafe')
 
-      // Cafe should now be first
-      expect(categories.value[0].key).toBe('cafe')
-      expect(categories.value[1].key).toBe('restaurant')
+      // Order should remain alphabetical (unchanged)
+      expect(categories.value.map(c => c.key)).toEqual(initialOrder)
     })
 
-    it('should not change order if category is already first', async () => {
-      searchPOI.mockResolvedValue([{ id: 1 }])
-
-      const { search, categories } = useSearch()
-
-      await search('test', 'restaurant')
-
-      expect(categories.value[0].key).toBe('restaurant')
-    })
-
-    it('should maintain order for searches without category', async () => {
+    it('should maintain alphabetical order for searches without category', async () => {
       searchPOI.mockResolvedValue([{ id: 1 }])
 
       const { search, categories } = useSearch()
@@ -244,17 +235,15 @@ describe('useSearch Composable', () => {
       expect(categories.value.map(c => c.key)).toEqual(initialOrder)
     })
 
-    it('should stack multiple category uses correctly', async () => {
-      searchPOI.mockResolvedValue([{ id: 1 }])
+    it('should sort all categories by label alphabetically', () => {
+      const { categories } = useSearch()
 
-      const { search, categories } = useSearch()
-
-      await search('test', 'park')
-      expect(categories.value[0].key).toBe('park')
-
-      await search('test', 'hotel')
-      expect(categories.value[0].key).toBe('hotel')
-      expect(categories.value[1].key).toBe('park')
+      // Verify the list is sorted alphabetically by label
+      for (let i = 1; i < categories.value.length; i++) {
+        const prev = categories.value[i - 1].label
+        const curr = categories.value[i].label
+        expect(prev.localeCompare(curr)).toBeLessThan(0)
+      }
     })
   })
 
