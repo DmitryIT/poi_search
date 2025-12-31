@@ -1,0 +1,29 @@
+{
+  "name": "poi-search",
+  "version": "1.0.0",
+  "description": "Leaflet-based POI search application",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "deps:check": "ncu",
+    "deps:update": "ncu -u && npm install",
+    "deps:update:minor": "ncu -u --target minor && npm install"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4",
+    "vue": "^3.5.26"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.3",
+    "@vue/test-utils": "^2.4.6",
+    "happy-dom": "^20.0.11",
+    "npm-check-updates": "^19.2.0",
+    "vite": "^7.3.0",
+    "vitest": "^4.0.16"
+  }
+}
