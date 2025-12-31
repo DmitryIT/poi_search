@@ -272,7 +272,7 @@ describe('Nominatim Service', () => {
       await searchByCategory('cafe', viewbox, center)
 
       const callUrl = global.fetch.mock.calls[0][0]
-      expect(callUrl).toContain('q=Cafes')
+      expect(callUrl).toContain('q=cafe')
       expect(callUrl).toContain('amenity=cafe')
       expect(callUrl).toContain('viewbox=13.3%2C52.4%2C13.5%2C52.6')
       expect(callUrl).toContain('bounded=1')

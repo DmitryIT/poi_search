@@ -143,10 +143,12 @@ export async function searchByCategory(category, viewbox, center, limit = 20) {
 
   const cat = CATEGORIES[category]
 
-  // Use the category label as search term with location context
-  // This helps Nominatim understand we want POIs of this type in this area
+  // Get the OSM tag value (e.g., 'cafe', 'atm', 'fuel') to use as search term
+  // Using the actual OSM tag value works better than human-readable labels
+  const osmTagValue = cat.amenity || cat.tourism || cat.leisure || cat.shop
+
   const params = new URLSearchParams({
-    q: cat.label,
+    q: osmTagValue,
     format: 'json',
     addressdetails: '1',
     limit: String(limit),
