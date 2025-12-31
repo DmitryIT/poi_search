@@ -98,6 +98,29 @@ describe('useSearch Composable', () => {
       expect(results.value).toEqual(mockResults)
     })
 
+    it('should use current map viewport for location-aware search', async () => {
+      // Scenario: User zooms to Frankfurt and searches for "airport"
+      // The search should pass the current viewport to limit results
+      const mockFrankfurtAirport = [{ id: 1, name: 'Frankfurt Airport' }]
+      searchPOI.mockResolvedValueOnce(mockFrankfurtAirport)
+
+      const { search, results, updateMapViewport } = useSearch()
+
+      // Simulate user zooming to Frankfurt area
+      const frankfurtBounds = { south: 49.9, west: 8.4, north: 50.2, east: 8.8 }
+      const frankfurtCenter = { lat: 50.05, lng: 8.6 }
+      updateMapViewport(frankfurtBounds, frankfurtCenter)
+
+      await search('airport')
+
+      // Verify viewport is passed to search function
+      expect(searchPOI).toHaveBeenCalledWith('airport', {
+        category: '',
+        viewbox: frankfurtBounds
+      })
+      expect(results.value).toEqual(mockFrankfurtAirport)
+    })
+
     it('should set isLoading during search', async () => {
       let resolveSearch
       searchPOI.mockReturnValueOnce(new Promise(resolve => {

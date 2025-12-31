@@ -103,7 +103,7 @@ describe('Nominatim Service', () => {
       expect(callUrl).toContain('amenity=restaurant')
     })
 
-    it('should add viewbox parameter for location-biased search', async () => {
+    it('should add viewbox parameter for location-bounded search', async () => {
       global.fetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockResponse)
@@ -114,7 +114,44 @@ describe('Nominatim Service', () => {
 
       const callUrl = global.fetch.mock.calls[0][0]
       expect(callUrl).toContain('viewbox=13.3%2C52.4%2C13.5%2C52.6')
-      expect(callUrl).toContain('bounded=0')
+      expect(callUrl).toContain('bounded=1')
+    })
+
+    it('should strictly bound search results to the map viewport area', async () => {
+      // Scenario: User zooms to Frankfurt area and searches for "airport"
+      // Results should be limited to the Frankfurt area viewbox
+      const frankfurtAirportResult = [
+        {
+          place_id: 99999,
+          name: 'Frankfurt Airport',
+          display_name: 'Frankfurt Airport, Frankfurt am Main, Germany',
+          lat: '50.0379',
+          lon: '8.5622',
+          type: 'aerodrome',
+          address: {
+            city: 'Frankfurt am Main',
+            country: 'Germany'
+          }
+        }
+      ]
+
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(frankfurtAirportResult)
+      })
+
+      // Frankfurt area viewbox
+      const frankfurtViewbox = { south: 49.9, west: 8.4, north: 50.2, east: 8.8 }
+      const results = await searchPOI('airport', { viewbox: frankfurtViewbox })
+
+      // Verify bounded=1 is used to strictly limit to viewport
+      const callUrl = global.fetch.mock.calls[0][0]
+      expect(callUrl).toContain('bounded=1')
+      expect(callUrl).toContain('viewbox=8.4%2C49.9%2C8.8%2C50.2')
+
+      // Verify results are returned
+      expect(results).toHaveLength(1)
+      expect(results[0].name).toBe('Frankfurt Airport')
     })
 
     it('should normalize POI response correctly', async () => {

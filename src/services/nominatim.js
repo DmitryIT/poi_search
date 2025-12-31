@@ -76,8 +76,8 @@ export async function searchPOI(query, options = {}) {
   // Format: <west>,<south>,<east>,<north>
   if (viewbox) {
     params.set('viewbox', `${viewbox.west},${viewbox.south},${viewbox.east},${viewbox.north}`)
-    // bounded=0 means prefer results in viewbox but don't exclude others
-    params.set('bounded', '0')
+    // bounded=1 strictly limits results to the viewbox area
+    params.set('bounded', '1')
   }
 
   // Add category filter if specified
