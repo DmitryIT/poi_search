@@ -6,6 +6,7 @@ export default defineConfig({
   base: '/poi_search/',
   test: {
     environment: 'happy-dom',
-    globals: true
+    globals: true,
+    exclude: ['**/node_modules/**', '**/e2e/**']
   }
 })
