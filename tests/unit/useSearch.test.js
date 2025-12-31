@@ -4,15 +4,22 @@ import { useSearch } from '../../src/composables/useSearch.js'
 // Mock the nominatim service
 vi.mock('../../src/services/nominatim.js', () => ({
   searchPOI: vi.fn(),
+  searchByCategory: vi.fn(),
   getInitialCategories: () => [
     { key: 'restaurant', label: 'Restaurants', icon: '🍽️' },
     { key: 'hotel', label: 'Hotels', icon: '🏨' },
     { key: 'cafe', label: 'Cafes', icon: '☕' },
     { key: 'park', label: 'Parks', icon: '🌳' }
-  ]
+  ],
+  CATEGORIES: {
+    restaurant: { label: 'Restaurants', amenity: 'restaurant', icon: '🍽️' },
+    hotel: { label: 'Hotels', tourism: 'hotel', icon: '🏨' },
+    cafe: { label: 'Cafes', amenity: 'cafe', icon: '☕' },
+    park: { label: 'Parks', leisure: 'park', icon: '🌳' }
+  }
 }))
 
-import { searchPOI } from '../../src/services/nominatim.js'
+import { searchPOI, searchByCategory } from '../../src/services/nominatim.js'
 
 describe('useSearch Composable', () => {
   beforeEach(() => {
@@ -40,6 +47,26 @@ describe('useSearch Composable', () => {
       expect(categories.value[0].key).toBe('restaurant')
       expect(categories.value[1].key).toBe('hotel')
     })
+
+    it('should have null map bounds initially', () => {
+      const { mapBounds, mapCenter } = useSearch()
+      expect(mapBounds.value).toBeNull()
+      expect(mapCenter.value).toBeNull()
+    })
+  })
+
+  describe('updateMapViewport', () => {
+    it('should update map bounds and center', () => {
+      const { updateMapViewport, mapBounds, mapCenter } = useSearch()
+
+      const bounds = { south: 52.4, west: 13.3, north: 52.6, east: 13.5 }
+      const center = { lat: 52.5, lng: 13.4 }
+
+      updateMapViewport(bounds, center)
+
+      expect(mapBounds.value).toEqual(bounds)
+      expect(mapCenter.value).toEqual(center)
+    })
   })
 
   describe('search', () => {
@@ -52,15 +79,22 @@ describe('useSearch Composable', () => {
       expect(searchPOI).not.toHaveBeenCalled()
     })
 
-    it('should call searchPOI with query and category', async () => {
+    it('should call searchPOI with query, category, and viewbox', async () => {
       const mockResults = [{ id: 1, name: 'Test POI' }]
       searchPOI.mockResolvedValueOnce(mockResults)
 
-      const { search, results } = useSearch()
+      const { search, results, updateMapViewport } = useSearch()
+
+      // Set map viewport
+      const bounds = { south: 52.4, west: 13.3, north: 52.6, east: 13.5 }
+      updateMapViewport(bounds, null)
 
       await search('coffee shop', 'cafe')
 
-      expect(searchPOI).toHaveBeenCalledWith('coffee shop', { category: 'cafe' })
+      expect(searchPOI).toHaveBeenCalledWith('coffee shop', {
+        category: 'cafe',
+        viewbox: bounds
+      })
       expect(results.value).toEqual(mockResults)
     })
 
@@ -99,6 +133,53 @@ describe('useSearch Composable', () => {
       await search('test')
 
       expect(error.value).toBe('Search failed. Please try again.')
+    })
+  })
+
+  describe('searchCategory', () => {
+    it('should search by category with map viewport', async () => {
+      const mockResults = [{ id: 1, name: 'Test Cafe' }]
+      searchByCategory.mockResolvedValueOnce(mockResults)
+
+      const { searchCategory, results, updateMapViewport } = useSearch()
+
+      const bounds = { south: 52.4, west: 13.3, north: 52.6, east: 13.5 }
+      const center = { lat: 52.5, lng: 13.4 }
+      updateMapViewport(bounds, center)
+
+      await searchCategory('cafe')
+
+      expect(searchByCategory).toHaveBeenCalledWith('cafe', bounds, center)
+      expect(results.value).toEqual(mockResults)
+    })
+
+    it('should set error for invalid category', async () => {
+      const { searchCategory, error } = useSearch()
+
+      await searchCategory('')
+
+      expect(error.value).toBe('Please select a category')
+      expect(searchByCategory).not.toHaveBeenCalled()
+    })
+
+    it('should show area-specific error when no results', async () => {
+      searchByCategory.mockResolvedValueOnce([])
+
+      const { searchCategory, error } = useSearch()
+
+      await searchCategory('cafe')
+
+      expect(error.value).toContain('No cafes found in this area')
+    })
+
+    it('should promote category to top after search', async () => {
+      searchByCategory.mockResolvedValueOnce([{ id: 1 }])
+
+      const { searchCategory, categories } = useSearch()
+
+      await searchCategory('park')
+
+      expect(categories.value[0].key).toBe('park')
     })
   })
 

@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { searchPOI, getInitialCategories } from '../services/nominatim.js'
+import { searchPOI, searchByCategory, getInitialCategories, CATEGORIES } from '../services/nominatim.js'
 
 /**
  * Composable for managing POI search state
@@ -11,6 +11,10 @@ export function useSearch() {
   const searchQuery = ref('')
   const selectedCategory = ref('')
   const selectedPOI = ref(null)
+
+  // Current map viewport
+  const mapBounds = ref(null)
+  const mapCenter = ref(null)
 
   // Category order with LIFO - most recently used on top
   const categoryOrder = ref(getInitialCategories().map(c => c.key))
@@ -39,7 +43,15 @@ export function useSearch() {
   }
 
   /**
-   * Perform POI search
+   * Update map viewport info
+   */
+  function updateMapViewport(bounds, center) {
+    mapBounds.value = bounds
+    mapCenter.value = center
+  }
+
+  /**
+   * Perform POI search with location bias
    */
   async function search(query, category = '') {
     if (!query.trim()) {
@@ -60,7 +72,10 @@ export function useSearch() {
     }
 
     try {
-      const data = await searchPOI(query, { category })
+      const data = await searchPOI(query, {
+        category,
+        viewbox: mapBounds.value
+      })
       results.value = data
 
       if (data.length === 0) {
@@ -68,6 +83,45 @@ export function useSearch() {
       }
     } catch (err) {
       console.error('Search error:', err)
+      error.value = 'Search failed. Please try again.'
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  /**
+   * Search for POIs by category only (in current map view)
+   */
+  async function searchCategory(category) {
+    if (!category || !CATEGORIES[category]) {
+      error.value = 'Please select a category'
+      return
+    }
+
+    selectedCategory.value = category
+    searchQuery.value = ''
+    isLoading.value = true
+    error.value = null
+    results.value = []
+    selectedPOI.value = null
+
+    // Promote used category to top
+    promoteCategory(category)
+
+    try {
+      const data = await searchByCategory(
+        category,
+        mapBounds.value,
+        mapCenter.value
+      )
+      results.value = data
+
+      if (data.length === 0) {
+        const catLabel = CATEGORIES[category].label
+        error.value = `No ${catLabel.toLowerCase()} found in this area. Try panning the map.`
+      }
+    } catch (err) {
+      console.error('Category search error:', err)
       error.value = 'Search failed. Please try again.'
     } finally {
       isLoading.value = false
@@ -108,12 +162,16 @@ export function useSearch() {
     selectedCategory,
     selectedPOI,
     categories,
+    mapBounds,
+    mapCenter,
 
     // Actions
     search,
+    searchCategory,
     selectPOI,
     clearSelection,
     clearSearch,
-    promoteCategory
+    promoteCategory,
+    updateMapViewport
   }
 }

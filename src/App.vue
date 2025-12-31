@@ -9,6 +9,7 @@
         :categories="categories"
         :is-loading="isLoading"
         @search="handleSearch"
+        @category-search="handleCategorySearch"
         @clear="clearSearch"
       />
     </header>
@@ -20,6 +21,8 @@
           :pois="results"
           :selected-p-o-i="selectedPOI"
           @poi-click="selectPOI"
+          @map-ready="handleMapReady"
+          @bounds-change="handleBoundsChange"
         />
       </div>
 
@@ -51,8 +54,10 @@ const {
   selectedPOI,
   categories,
   search,
+  searchCategory,
   selectPOI,
-  clearSearch
+  clearSearch,
+  updateMapViewport
 } = useSearch()
 
 const mapRef = ref(null)
@@ -61,9 +66,21 @@ function handleSearch(query, category) {
   search(query, category)
 }
 
+function handleCategorySearch(category) {
+  searchCategory(category)
+}
+
 function handlePOISelect(poi) {
   selectPOI(poi)
   // MapView will automatically focus due to watch on selectedPOI
+}
+
+function handleMapReady({ bounds, center }) {
+  updateMapViewport(bounds, center)
+}
+
+function handleBoundsChange({ bounds, center }) {
+  updateMapViewport(bounds, center)
 }
 </script>
 
