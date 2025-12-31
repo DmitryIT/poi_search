@@ -53,16 +53,11 @@ async function rateLimitedFetch(url) {
 }
 
 /**
- * Search for POIs using free text search
- * @param {string} query - Search query
- * @param {Object} options - Search options
- * @param {string} options.category - Category key from CATEGORIES
- * @param {number} options.limit - Max results (default 20)
- * @param {Object} options.viewbox - Map bounds {south, west, north, east}
- * @returns {Promise<Array>} Array of POI results
+ * Build search URL with given parameters
+ * @private
  */
-export async function searchPOI(query, options = {}) {
-  const { category, limit = 20, viewbox } = options
+function buildSearchUrl(query, options = {}) {
+  const { category, limit = 20, viewbox, bounded } = options
 
   const params = new URLSearchParams({
     q: query,
@@ -72,12 +67,11 @@ export async function searchPOI(query, options = {}) {
     extratags: '1'
   })
 
-  // Add viewbox for location-biased search
+  // Add viewbox for location-based search
   // Format: <west>,<south>,<east>,<north>
   if (viewbox) {
     params.set('viewbox', `${viewbox.west},${viewbox.south},${viewbox.east},${viewbox.north}`)
-    // bounded=0 means prefer results in viewbox but don't exclude others
-    params.set('bounded', '0')
+    params.set('bounded', bounded ? '1' : '0')
   }
 
   // Add category filter if specified
@@ -94,7 +88,41 @@ export async function searchPOI(query, options = {}) {
     }
   }
 
-  const url = `${BASE_URL}/search?${params.toString()}`
+  return `${BASE_URL}/search?${params.toString()}`
+}
+
+/**
+ * Search for POIs using free text search
+ * Uses a fallback strategy: first tries bounded search (results in current viewport),
+ * then falls back to unbounded search if no results found.
+ * @param {string} query - Search query
+ * @param {Object} options - Search options
+ * @param {string} options.category - Category key from CATEGORIES
+ * @param {number} options.limit - Max results (default 20)
+ * @param {Object} options.viewbox - Map bounds {south, west, north, east}
+ * @returns {Promise<Array>} Array of POI results
+ */
+export async function searchPOI(query, options = {}) {
+  const { category, limit = 20, viewbox } = options
+
+  // First try: bounded search (strict - only results in viewport)
+  if (viewbox) {
+    const boundedUrl = buildSearchUrl(query, { category, limit, viewbox, bounded: true })
+    const boundedData = await rateLimitedFetch(boundedUrl)
+
+    if (boundedData.length > 0) {
+      return boundedData.map(item => normalizePOI(item, category))
+    }
+
+    // Fallback: unbounded search (prefer viewport but include worldwide results)
+    const unboundedUrl = buildSearchUrl(query, { category, limit, viewbox, bounded: false })
+    const unboundedData = await rateLimitedFetch(unboundedUrl)
+
+    return unboundedData.map(item => normalizePOI(item, category))
+  }
+
+  // No viewbox - just do a regular search
+  const url = buildSearchUrl(query, { category, limit })
   const data = await rateLimitedFetch(url)
 
   return data.map(item => normalizePOI(item, category))
