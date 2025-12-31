@@ -114,7 +114,46 @@ describe('Nominatim Service', () => {
 
       const callUrl = global.fetch.mock.calls[0][0]
       expect(callUrl).toContain('viewbox=13.3%2C52.4%2C13.5%2C52.6')
-      expect(callUrl).toContain('bounded=0')
+      expect(callUrl).toContain('bounded=1')
+    })
+
+    it('should strictly limit results to viewbox area (Frankfurt airport scenario)', async () => {
+      // Simulate searching for "airport" while zoomed to Frankfurt area
+      // This ensures results are limited to the visible map area only
+      const frankfurtViewbox = {
+        south: 50.0,
+        west: 8.5,
+        north: 50.2,
+        east: 8.8
+      }
+
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([
+          {
+            place_id: 999,
+            name: 'Frankfurt Airport',
+            display_name: 'Frankfurt Airport, Frankfurt, Germany',
+            lat: '50.0379',
+            lon: '8.5622',
+            type: 'aerodrome',
+            address: {
+              city: 'Frankfurt',
+              country: 'Germany'
+            }
+          }
+        ])
+      })
+
+      await searchPOI('airport', { viewbox: frankfurtViewbox })
+
+      const callUrl = global.fetch.mock.calls[0][0]
+      // Verify viewbox is set with Frankfurt coordinates
+      expect(callUrl).toContain(`viewbox=${frankfurtViewbox.west}%2C${frankfurtViewbox.south}%2C${frankfurtViewbox.east}%2C${frankfurtViewbox.north}`)
+      // Verify bounded=1 to ensure strict area limitation
+      expect(callUrl).toContain('bounded=1')
+      // Verify the search query is included
+      expect(callUrl).toContain('q=airport')
     })
 
     it('should normalize POI response correctly', async () => {
