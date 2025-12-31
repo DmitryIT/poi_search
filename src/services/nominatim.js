@@ -5,20 +5,21 @@
 
 const BASE_URL = 'https://nominatim.openstreetmap.org'
 
-// Category mappings to OSM tags
+// Category mappings to OSM tags and Nominatim special phrases
+// See: https://wiki.openstreetmap.org/wiki/Nominatim/Special_Phrases/EN
 export const CATEGORIES = {
-  restaurant: { label: 'Restaurants', amenity: 'restaurant', icon: '🍽️' },
-  hotel: { label: 'Hotels', tourism: 'hotel', icon: '🏨' },
-  cafe: { label: 'Cafes', amenity: 'cafe', icon: '☕' },
-  park: { label: 'Parks', leisure: 'park', icon: '🌳' },
-  hospital: { label: 'Hospitals', amenity: 'hospital', icon: '🏥' },
-  pharmacy: { label: 'Pharmacies', amenity: 'pharmacy', icon: '💊' },
-  fuel: { label: 'Gas Stations', amenity: 'fuel', icon: '⛽' },
-  bank: { label: 'Banks', amenity: 'bank', icon: '🏦' },
-  atm: { label: 'ATMs', amenity: 'atm', icon: '💳' },
-  supermarket: { label: 'Supermarkets', shop: 'supermarket', icon: '🛒' },
-  museum: { label: 'Museums', tourism: 'museum', icon: '🏛️' },
-  parking: { label: 'Parking', amenity: 'parking', icon: '🅿️' }
+  restaurant: { label: 'Restaurants', phrase: 'restaurant', amenity: 'restaurant', icon: '🍽️' },
+  hotel: { label: 'Hotels', phrase: 'hotel', tourism: 'hotel', icon: '🏨' },
+  cafe: { label: 'Cafes', phrase: 'cafe', amenity: 'cafe', icon: '☕' },
+  park: { label: 'Parks', phrase: 'park', leisure: 'park', icon: '🌳' },
+  hospital: { label: 'Hospitals', phrase: 'hospital', amenity: 'hospital', icon: '🏥' },
+  pharmacy: { label: 'Pharmacies', phrase: 'pharmacy', amenity: 'pharmacy', icon: '💊' },
+  fuel: { label: 'Gas Stations', phrase: 'gas station', amenity: 'fuel', icon: '⛽' },
+  bank: { label: 'Banks', phrase: 'bank', amenity: 'bank', icon: '🏦' },
+  atm: { label: 'ATMs', phrase: 'atm', amenity: 'atm', icon: '💳' },
+  supermarket: { label: 'Supermarkets', phrase: 'supermarket', shop: 'supermarket', icon: '🛒' },
+  museum: { label: 'Museums', phrase: 'museum', tourism: 'museum', icon: '🏛️' },
+  parking: { label: 'Parking', phrase: 'parking', amenity: 'parking', icon: '🅿️' }
 }
 
 /**
@@ -143,12 +144,13 @@ export async function searchByCategory(category, viewbox, center, limit = 20) {
 
   const cat = CATEGORIES[category]
 
-  // Get the OSM tag value (e.g., 'cafe', 'atm', 'fuel') to use as search term
-  // Using the actual OSM tag value works better than human-readable labels
-  const osmTagValue = cat.amenity || cat.tourism || cat.leisure || cat.shop
+  // Use Nominatim special phrase syntax with square brackets for category search
+  // See: https://nominatim.org/release-docs/latest/api/Search/
+  // When bounded=1 and viewbox is set, [phrase] syntax enables amenity-only search
+  const searchPhrase = `[${cat.phrase}]`
 
   const params = new URLSearchParams({
-    q: osmTagValue,
+    q: searchPhrase,
     format: 'json',
     addressdetails: '1',
     limit: String(limit),
@@ -159,17 +161,6 @@ export async function searchByCategory(category, viewbox, center, limit = 20) {
   if (viewbox) {
     params.set('viewbox', `${viewbox.west},${viewbox.south},${viewbox.east},${viewbox.north}`)
     params.set('bounded', '1')
-  }
-
-  // Add category filter
-  if (cat.amenity) {
-    params.set('amenity', cat.amenity)
-  } else if (cat.tourism) {
-    params.set('tourism', cat.tourism)
-  } else if (cat.leisure) {
-    params.set('leisure', cat.leisure)
-  } else if (cat.shop) {
-    params.set('shop', cat.shop)
   }
 
   const url = `${BASE_URL}/search?${params.toString()}`
