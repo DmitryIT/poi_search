@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // We need to import fresh for each test to reset rate limiting state
-let searchPOI, CATEGORIES, getInitialCategories
+let searchPOI, searchByCategory, CATEGORIES, getInitialCategories
 
 describe('Nominatim Service', () => {
   beforeEach(async () => {
@@ -11,6 +11,7 @@ describe('Nominatim Service', () => {
     // Fresh import to reset rate limiting state
     const module = await import('../../src/services/nominatim.js')
     searchPOI = module.searchPOI
+    searchByCategory = module.searchByCategory
     CATEGORIES = module.CATEGORIES
     getInitialCategories = module.getInitialCategories
   })
@@ -102,6 +103,20 @@ describe('Nominatim Service', () => {
       expect(callUrl).toContain('amenity=restaurant')
     })
 
+    it('should add viewbox parameter for location-biased search', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockResponse)
+      })
+
+      const viewbox = { south: 52.4, west: 13.3, north: 52.6, east: 13.5 }
+      await searchPOI('restaurant', { viewbox })
+
+      const callUrl = global.fetch.mock.calls[0][0]
+      expect(callUrl).toContain('viewbox=13.3%2C52.4%2C13.5%2C52.6')
+      expect(callUrl).toContain('bounded=0')
+    })
+
     it('should normalize POI response correctly', async () => {
       global.fetch.mockResolvedValueOnce({
         ok: true,
@@ -139,6 +154,62 @@ describe('Nominatim Service', () => {
 
       const fetchOptions = global.fetch.mock.calls[0][1]
       expect(fetchOptions.headers['User-Agent']).toContain('POISearchApp')
+    })
+  })
+
+  describe('searchByCategory', () => {
+    const mockResponse = [
+      {
+        place_id: 12345,
+        name: 'Test Cafe',
+        display_name: 'Test Cafe, Berlin, Germany',
+        lat: '52.5200',
+        lon: '13.4050',
+        type: 'cafe',
+        address: {
+          city: 'Berlin',
+          country: 'Germany'
+        }
+      }
+    ]
+
+    it('should search by category with viewbox', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockResponse)
+      })
+
+      const viewbox = { south: 52.4, west: 13.3, north: 52.6, east: 13.5 }
+      const center = { lat: 52.5, lng: 13.4 }
+      await searchByCategory('cafe', viewbox, center)
+
+      const callUrl = global.fetch.mock.calls[0][0]
+      expect(callUrl).toContain('q=Cafes')
+      expect(callUrl).toContain('amenity=cafe')
+      expect(callUrl).toContain('viewbox=13.3%2C52.4%2C13.5%2C52.6')
+      expect(callUrl).toContain('bounded=1')
+    })
+
+    it('should throw error for invalid category', async () => {
+      await expect(searchByCategory('invalid', null, null))
+        .rejects.toThrow('Invalid category')
+    })
+
+    it('should return normalized results', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockResponse)
+      })
+
+      const viewbox = { south: 52.4, west: 13.3, north: 52.6, east: 13.5 }
+      const results = await searchByCategory('cafe', viewbox, null)
+
+      expect(results).toHaveLength(1)
+      expect(results[0]).toMatchObject({
+        id: 12345,
+        name: 'Test Cafe',
+        category: 'cafe'
+      })
     })
   })
 })

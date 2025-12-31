@@ -24,6 +24,9 @@ describe('Search Flow Integration', () => {
       const select = wrapper.find('.category-select')
       await select.setValue('restaurant')
 
+      // category-search is emitted on category change
+      expect(wrapper.emitted('category-search')).toBeTruthy()
+
       const button = wrapper.find('.search-btn')
       await button.trigger('click')
 
@@ -42,6 +45,32 @@ describe('Search Flow Integration', () => {
       expect(wrapper.emitted('search')[0]).toEqual(['hotel berlin', ''])
     })
 
+    it('should emit category-search when category is selected', async () => {
+      const wrapper = mount(SearchBar, { props: defaultProps })
+
+      const select = wrapper.find('.category-select')
+      await select.setValue('restaurant')
+
+      expect(wrapper.emitted('category-search')).toBeTruthy()
+      expect(wrapper.emitted('category-search')[0]).toEqual(['restaurant'])
+    })
+
+    it('should emit category-search on button click when only category selected', async () => {
+      const wrapper = mount(SearchBar, { props: defaultProps })
+
+      const select = wrapper.find('.category-select')
+      await select.setValue('hotel')
+
+      // Clear the category-search emit from selection
+      wrapper.emitted('category-search').length = 0
+
+      const button = wrapper.find('.search-btn')
+      await button.trigger('click')
+
+      expect(wrapper.emitted('category-search')).toBeTruthy()
+      expect(wrapper.emitted('category-search')[0]).toEqual(['hotel'])
+    })
+
     it('should disable search button when loading', () => {
       const wrapper = mount(SearchBar, {
         props: { ...defaultProps, isLoading: true }
@@ -51,19 +80,39 @@ describe('Search Flow Integration', () => {
       expect(button.attributes('disabled')).toBeDefined()
     })
 
-    it('should disable search button when query is empty', () => {
+    it('should disable search button when no query and no category', () => {
       const wrapper = mount(SearchBar, { props: defaultProps })
 
       const button = wrapper.find('.search-btn')
       expect(button.attributes('disabled')).toBeDefined()
     })
 
-    it('should show clear button only when query exists', async () => {
+    it('should enable search button when category is selected without query', async () => {
+      const wrapper = mount(SearchBar, { props: defaultProps })
+
+      const select = wrapper.find('.category-select')
+      await select.setValue('restaurant')
+
+      const button = wrapper.find('.search-btn')
+      expect(button.attributes('disabled')).toBeUndefined()
+    })
+
+    it('should show clear button when query exists', async () => {
       const wrapper = mount(SearchBar, { props: defaultProps })
 
       expect(wrapper.find('.clear-btn').exists()).toBe(false)
 
       await wrapper.find('.search-input').setValue('test')
+
+      expect(wrapper.find('.clear-btn').exists()).toBe(true)
+    })
+
+    it('should show clear button when category is selected', async () => {
+      const wrapper = mount(SearchBar, { props: defaultProps })
+
+      expect(wrapper.find('.clear-btn').exists()).toBe(false)
+
+      await wrapper.find('.category-select').setValue('restaurant')
 
       expect(wrapper.find('.clear-btn').exists()).toBe(true)
     })
@@ -89,6 +138,17 @@ describe('Search Flow Integration', () => {
       expect(options[0].text()).toBe('All Categories')
       expect(options[1].text()).toContain('Restaurants')
       expect(options[2].text()).toContain('Hotels')
+    })
+
+    it('should update placeholder when category is selected', async () => {
+      const wrapper = mount(SearchBar, { props: defaultProps })
+
+      const input = wrapper.find('.search-input')
+      expect(input.attributes('placeholder')).toBe('Search for places...')
+
+      await wrapper.find('.category-select').setValue('restaurant')
+
+      expect(input.attributes('placeholder')).toBe('Search restaurants in this area...')
     })
   })
 

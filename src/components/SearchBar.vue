@@ -5,12 +5,12 @@
       <input
         v-model="query"
         type="text"
-        placeholder="Search for places..."
+        :placeholder="placeholder"
         class="search-input"
         @keyup.enter="handleSearch"
       />
       <button
-        v-if="query"
+        v-if="query || category"
         class="clear-btn"
         @click="clearInput"
         title="Clear search"
@@ -22,6 +22,7 @@
     <select
       v-model="category"
       class="category-select"
+      @change="handleCategoryChange"
     >
       <option value="">All Categories</option>
       <option
@@ -35,7 +36,7 @@
 
     <button
       class="search-btn"
-      :disabled="isLoading || !query.trim()"
+      :disabled="isLoading || (!query.trim() && !category)"
       @click="handleSearch"
     >
       <span v-if="isLoading" class="spinner"></span>
@@ -45,7 +46,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 const props = defineProps({
   categories: {
@@ -58,14 +59,36 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['search', 'clear'])
+const emit = defineEmits(['search', 'category-search', 'clear'])
 
 const query = ref('')
 const category = ref('')
 
+// Dynamic placeholder based on selected category
+const placeholder = computed(() => {
+  if (category.value) {
+    const cat = props.categories.find(c => c.key === category.value)
+    if (cat) {
+      return `Search ${cat.label.toLowerCase()} in this area...`
+    }
+  }
+  return 'Search for places...'
+})
+
 function handleSearch() {
   if (query.value.trim()) {
+    // Text search (with optional category filter)
     emit('search', query.value.trim(), category.value)
+  } else if (category.value) {
+    // Category-only search
+    emit('category-search', category.value)
+  }
+}
+
+function handleCategoryChange() {
+  // When category changes, trigger category search immediately
+  if (category.value) {
+    emit('category-search', category.value)
   }
 }
 

@@ -49,7 +49,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['poi-click'])
+const emit = defineEmits(['poi-click', 'map-ready', 'bounds-change'])
 
 // Germany center as fallback
 const DEFAULT_CENTER = [51.1657, 10.4515]
@@ -134,6 +134,36 @@ function focusPOI(poi) {
   })
 }
 
+/**
+ * Get current map bounds in the format needed for Nominatim
+ * @returns {Object} {south, west, north, east}
+ */
+function getBounds() {
+  if (!map) return null
+
+  const bounds = map.getBounds()
+  return {
+    south: bounds.getSouth(),
+    west: bounds.getWest(),
+    north: bounds.getNorth(),
+    east: bounds.getEast()
+  }
+}
+
+/**
+ * Get current map center
+ * @returns {Object} {lat, lng}
+ */
+function getCenter() {
+  if (!map) return null
+
+  const center = map.getCenter()
+  return {
+    lat: center.lat,
+    lng: center.lng
+  }
+}
+
 async function getUserLocation() {
   return new Promise((resolve) => {
     if (!navigator.geolocation) {
@@ -181,6 +211,14 @@ onMounted(async () => {
 
   // Initial markers
   updateMarkers()
+
+  // Emit map ready event with initial bounds
+  emit('map-ready', { bounds: getBounds(), center: getCenter() })
+
+  // Listen for map move/zoom events
+  map.on('moveend', () => {
+    emit('bounds-change', { bounds: getBounds(), center: getCenter() })
+  })
 })
 
 onUnmounted(() => {
@@ -203,7 +241,9 @@ watch(() => props.selectedPOI, (poi) => {
 // Expose methods for parent
 defineExpose({
   focusPOI,
-  setLayer
+  setLayer,
+  getBounds,
+  getCenter
 })
 </script>
 

@@ -58,10 +58,11 @@ async function rateLimitedFetch(url) {
  * @param {Object} options - Search options
  * @param {string} options.category - Category key from CATEGORIES
  * @param {number} options.limit - Max results (default 20)
+ * @param {Object} options.viewbox - Map bounds {south, west, north, east}
  * @returns {Promise<Array>} Array of POI results
  */
 export async function searchPOI(query, options = {}) {
-  const { category, limit = 20 } = options
+  const { category, limit = 20, viewbox } = options
 
   const params = new URLSearchParams({
     q: query,
@@ -70,6 +71,14 @@ export async function searchPOI(query, options = {}) {
     limit: String(limit),
     extratags: '1'
   })
+
+  // Add viewbox for location-biased search
+  // Format: <west>,<south>,<east>,<north>
+  if (viewbox) {
+    params.set('viewbox', `${viewbox.west},${viewbox.south},${viewbox.east},${viewbox.north}`)
+    // bounded=0 means prefer results in viewbox but don't exclude others
+    params.set('bounded', '0')
+  }
 
   // Add category filter if specified
   if (category && CATEGORIES[category]) {
@@ -83,6 +92,54 @@ export async function searchPOI(query, options = {}) {
     } else if (cat.shop) {
       params.set('shop', cat.shop)
     }
+  }
+
+  const url = `${BASE_URL}/search?${params.toString()}`
+  const data = await rateLimitedFetch(url)
+
+  return data.map(item => normalizePOI(item, category))
+}
+
+/**
+ * Search for POIs by category in a specific area
+ * @param {string} category - Category key from CATEGORIES
+ * @param {Object} viewbox - Map bounds {south, west, north, east}
+ * @param {Object} center - Map center {lat, lng}
+ * @param {number} limit - Max results (default 20)
+ * @returns {Promise<Array>} Array of POI results
+ */
+export async function searchByCategory(category, viewbox, center, limit = 20) {
+  if (!category || !CATEGORIES[category]) {
+    throw new Error('Invalid category')
+  }
+
+  const cat = CATEGORIES[category]
+
+  // Use the category label as search term with location context
+  // This helps Nominatim understand we want POIs of this type in this area
+  const params = new URLSearchParams({
+    q: cat.label,
+    format: 'json',
+    addressdetails: '1',
+    limit: String(limit),
+    extratags: '1'
+  })
+
+  // Add viewbox for area search with bounded=1 to strictly limit to area
+  if (viewbox) {
+    params.set('viewbox', `${viewbox.west},${viewbox.south},${viewbox.east},${viewbox.north}`)
+    params.set('bounded', '1')
+  }
+
+  // Add category filter
+  if (cat.amenity) {
+    params.set('amenity', cat.amenity)
+  } else if (cat.tourism) {
+    params.set('tourism', cat.tourism)
+  } else if (cat.leisure) {
+    params.set('leisure', cat.leisure)
+  } else if (cat.shop) {
+    params.set('shop', cat.shop)
   }
 
   const url = `${BASE_URL}/search?${params.toString()}`
